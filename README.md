@@ -1,13 +1,13 @@
 # WindowsDeploymentScripts
-Recently rediscovered my personal collection of Windows deployment scripts, unattend files and other related stuff. Quite frankly not 
-that good, but the documentation on these topics isn't great, so I figure some people might find it useful Please be warned that 
-development on these stopped quickly a while ago, as I moved into a Linux environment, so no promises on function or form. They're more 
-useful as a starting point than anything else.
+Collection of Windows deployment scripts, unattend files and other related stuff I've made.
 
 These were developed with an unusual use case in mind - re-imaging refurbished PCs via WDS, but could be repurposed for more general 
-systems administration functions. Most were used on Windows Server 2016.
+systems administration functions. Most were used on Windows Server 2016 and to deploy Windows 7+
 
 # Contents
+## Windows Image Generator
+Supposed to allow automatically creating Windows Images (.wim files) Still under development. 
+
 ## HTML Spec Sheets
 Scripts for generating HTML spec sheets. These and the unattend files are by far the best here In four flavours, VBS, batch, PowerShell
 and PowerShell with speech. These are all more or less functional. I find that the VBS script was the best choice for running as part 
