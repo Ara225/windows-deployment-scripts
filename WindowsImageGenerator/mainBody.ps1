@@ -108,7 +108,7 @@ Function mainBody($ISOPath, $DestinationFolder, $ListOfSoftware) {
         }
         catch {
             Write-Output "$([datetime]::Now.ToString()) Error handling Windows Home image" >>$ScriptLocation\ImageGenerator.log
-            Write-Output $_.Exception  >>$ScriptLocation\ImageGenerator.log
+            Write-Output "$_.Exception" >>$ScriptLocation\ImageGenerator.log
         }
         Write-Output "$([datetime]::Now.ToString()) Starting to process Windows 10 Pro" >>$ScriptLocation\ImageGenerator.log
 
@@ -148,11 +148,11 @@ Function mainBody($ISOPath, $DestinationFolder, $ListOfSoftware) {
         }
         catch {
             Write-Output "$([datetime]::Now.ToString()) Error handling Windows Pro image." >>$ScriptLocation\ImageGenerator.log
-            Write-Output $_.Exception  >>$ScriptLocation\ImageGenerator.log
+            Write-Output "$_.Exception" >>$ScriptLocation\ImageGenerator.log
         }
         Set-Location $DestinationFolder
         Set-Location $ScriptLocation
-        Write-Output "$([datetime]::Now.ToString()) Error handling Windows Pro image." >>$ScriptLocation\ImageGenerator.log
+        Write-Output "$([datetime]::Now.ToString()) Image Maker has completed its run" >>$ScriptLocation\ImageGenerator.log
         return
     }
     catch {
