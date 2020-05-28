@@ -85,7 +85,7 @@ try {
     }
     if (Get-ChildItem $ScriptLocation\FilesToInstall) {
         Get-ChildItem $ScriptLocation\FilesToInstall | ForEach-Object {
-            Copy-Item $ScriptLocation\FilesToInstall\$_ .
+            Copy-Item $ScriptLocation\FilesToInstall\$_ .\Software
         }
     }
     Write-Host "Using DISM to convert the Home folder (which contains the extracted files) back into a image. "
@@ -109,7 +109,7 @@ try {
     }
     if (Get-ChildItem $ScriptLocation\FilesToInstall) {
         Get-ChildItem $ScriptLocation\FilesToInstall | ForEach-Object {
-            Copy-Item $ScriptLocation\FilesToInstall\$_ .
+            Copy-Item $ScriptLocation\FilesToInstall\$_ .\Software
         }
     }
     Write-Host "Using DISM to convert the Pro folder (which contains the extracted files) back into a image. "

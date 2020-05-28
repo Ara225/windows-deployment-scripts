@@ -1,154 +1,17 @@
-$Started = $false
+$ScriptLocation = Get-Location
+$ScriptLocation = $ScriptLocation.Path
+# Remove old log file
+if (Test-Path $ScriptLocation\ImageGenerator.log) {
+    Remove-Item $ScriptLocation\ImageGenerator.log
+}
+Write-Output "GUI opened, image making process not started" >>$ScriptLocation\ImageGenerator.log
+$InitScript = [scriptblock]::Create("Set-Location " + $($ScriptLocation) + " ;Import-module .\mainBody.ps1 -Force")
+
+$JobId = $null
 $wshell = New-Object -ComObject Wscript.Shell
 if (!(Test-Path "C:\Program Files (x86)\7-Zip\7z.exe")) {
     $wshell.Popup("Can not find the 7Zip command line tool (C:\Program Files (x86)\7-Zip\7z.exe). This is essential. Please install the non portable Windows version from 7Zip & try again.",0,"Error",16)
     exit
-}
-Function mainBody($ISOPath, $DestinationFolder, $ListOfSoftware) {    
-    try {
-        $Label5.Text = "Script has started. FYI, many steps will take a very long time."
-        # Assumes that the script is run from the same location as it is actually in. This will always happen when run by the batch script
-        $ScriptLocation = Get-Location
-        $ScriptLocation = $ScriptLocation.Path
-        Set-Location $DestinationFolder
-        # The list of volumes before mounting ISO
-        $volumesBefore = Get-Volume
-        # Mount ISO Assumes default file associations are present
-        Invoke-Item $ISOPath
-        $Label5.Text = "Checking if ISO has mounted"
-        # Volumes present after mounting ISO
-        $volumeAfter = Get-Volume
-        # Compare the volumes
-        $DriveLetter = Compare-Object -ReferenceObject $volumesBefore -DifferenceObject $volumeAfter -Property DriveLetter
-        $count = 0
-        # If we can't see the ISO mount straight away
-        while (($null -eq $DriveLetter) -and ($count -lt 5)) {
-            Start-Sleep 2
-            $count++
-            $volumeAfter = Get-Volume
-            $DriveLetter = Compare-Object -ReferenceObject $volumesBefore -DifferenceObject $volumeAfter -Property DriveLetter
-        }
-        
-        if ($null -eq $DriveLetter) {
-            $Label5.Text = "ERROR: The ISO has not mounted properly OR was already inserted. Please eject the ISO (right click on the newly added CD drive and click eject) and try again"
-            return
-        }
-        elseif ($DriveLetter.DriveLetter.length -gt 1) {
-            $Label5.Text = "ERROR: Detected more than one drive was added. Please eject the ISO (right click on the newly added CD drive and click eject)"
-            return
-        }
-        
-        # Converts to String instead of Char PS is fidly about that for some reason
-        $drive = "" + $DriveLetter.DriveLetter[0]
-        $Label5.Text = "Extracting the (install.esd) base image file from the ISO"
-        if (Test-Path  .\install.esd) {
-            Remove-Item .\install.esd
-        }
-        # Take install file from iso
-        Copy-Item -Path $drive`:\sources\install.esd -Destination .
-        $Label5.Text = "Looking inside the install.esd file, to find the Windows 10 Home and Windows 10 Pro images"
-        $WIMContents = dism /Get-WimInfo /WimFile:.\install.esd
-        
-        # Find Windows 10 Pro and Home images (install.esd has all the editions of Win10)
-        for ($i = 0; $i -lt $WIMContents.Count; $i++) {
-            if ($WIMContents[$i] -eq "Name : Windows 10 Pro") {
-                $ProIndex = $WIMContents[$i - 1].replace("Index : ", "") - 1
-            }
-            if ($WIMContents[$i] -eq "Name : Windows 10 Home") {
-                $HomeIndex = $WIMContents[$i - 1].replace("Index : ", "") - 1
-            }
-        }
-        if (Test-Path  .\Windows10ProNew.wim) {
-            Move-Item .\Windows10ProNew.wim .\Windows10ProOld.wim
-        }
-        if (Test-Path  .\Windows10HomeNew.wim) {
-            Move-Item .\Windows10HomeNew.wim .\Windows10HomeOld.wim
-        }
-        $HomeIndex = $HomeIndex + 1
-        $ProIndex = $ProIndex + 1
-        
-        if (Test-Path  .\Home) {
-            Move-Item .\Home .\HomeOld
-        }
-        if (Test-Path  .\Pro) {
-            Move-Item .\Pro .\ProOld
-        }
-        
-        mkdir Pro
-        mkdir Home
-        $Label5.Text = "Starting to process the Windows 10 Home image"
-        Set-Location Home
-        try {
-            $Label5.Text = "Trying to use 7zip to extract the Home image (PLEASE ensure 7zip is installed if not already)"
-            & 'C:\Program Files (x86)\7-Zip\7z.exe' x ..\install.esd $HomeIndex
-            if (Get-ChildItem $ScriptLocation\AdministrativeFiles) {
-                Get-ChildItem $ScriptLocation\AdministrativeFiles | ForEach-Object {
-                    Copy-Item $ScriptLocation\AdministrativeFiles\$_ .
-                }
-            }
-            else {
-                $Label5.Text = "Can not find AdministrativeFiles folder (This folder should be in the same place as the script). This means that the install will not be automated!!"
-            }
-            if ($ListOfSoftware.Count -ne 0) {
-                mkdir Software
-                for ($i = 0; $i -lt $ListOfSoftware.Count; $i++) {
-                    Copy-Item  $ListOfSoftware[$i] .\Software
-                }
-            }
-            elseif (Get-ChildItem $ScriptLocation\FilesToInstall) {
-                mkdir Software
-                Get-ChildItem $ScriptLocation\FilesToInstall | ForEach-Object {
-                    Copy-Item $ScriptLocation\FilesToInstall\$_ .\Software
-                }
-            }
-            $Label5.Text = "Using DISM to convert the Home folder (which contains the extracted files) back into a image. "
-            Dism /Capture-Image /ImageFile:../Win10HomeNew.wim /CaptureDir:$HomeIndex /Name:Win10Home
-        }
-        catch {
-            $Label5.Text = "Error handling Windows Home image"
-            Write-Error "Error handling Windows Home image."
-        }
-        $Label5.Text = "Starting to process Windows 10 Pro"
-        Set-Location ..\Pro
-        try {
-            $Label5.Text = "Trying to use 7zip to extract the Pro image (PLEASE ensure 7zip is installed if not already)"
-            & 'C:\Program Files (x86)\7-Zip\7z.exe' x ..\install.esd $ProIndex
-            if (Get-ChildItem $ScriptLocation\AdministrativeFiles) {
-                Get-ChildItem $ScriptLocation\AdministrativeFiles | ForEach-Object {
-                    Copy-Item $ScriptLocation\AdministrativeFiles\$_ .
-                }
-            }
-            else {
-                $Label5.Text = "Can not find AdministrativeFiles folder (This folder should be in the same place as the script). This means that the install will not be automated!!"
-            }
-            if ($ListOfSoftware.Count -ne 0) {
-                mkdir Software
-                for ($i = 0; $i -lt $ListOfSoftware.Count; $i++) {
-                    Copy-Item  $ListOfSoftware[$i] .\Software
-                }
-            }
-            elseif (Get-ChildItem $ScriptLocation\FilesToInstall) {
-                mkdir Software
-                Get-ChildItem $ScriptLocation\FilesToInstall | ForEach-Object {
-                    Copy-Item $ScriptLocation\FilesToInstall\$_ .\Software
-                }
-            }
-            $Label5.Text = "Using DISM to convert the Pro folder (which contains the extracted files) back into a image. "
-            Dism /Capture-Image /ImageFile:../Win10ProNew.wim /CaptureDir:$ProIndex /Name:Win10Pro
-        }
-        catch {
-            $Label5.Text = "Error handling Windows Pro image."
-            Write-Error "Error handling Windows Pro image."
-        }
-        Set-Location $DestinationFolder
-        Set-Location $ScriptLocation
-        return
-    }
-    catch {
-        $Label5.Text = "A error occured: " + $_.Exception.Message
-        Write-Error $_.Exception
-        return
-    }
 }
 #****** Instigate the window itself
 Add-Type -assembly System.Windows.Forms
@@ -231,7 +94,7 @@ $Button3.AutoSize = $true
 $main_form.Controls.Add($Button3)
 $opens3 = New-Object System.Windows.Forms.OpenFileDialog
 $opens3.Multiselect = $true
-$opens3.Filter = "Software Installers|*.msi,*.exe|All Files|*"
+$opens3.Filter = "Software Installers|*.msi;*.exe|All Files|*"
 # Add each one of the files to the list in the list box
 $Button3.Add_Click({
         $opens3.ShowDialog()
@@ -247,14 +110,26 @@ $Button4.AutoSize = $true
 $Button4.BackColor = "ForestGreen"
 $Button4.ForeColor = "White"
 $Button4.Add_Click( {
-    if (($Started -eq $false) -and ($textBox2.Text -ne "") -and ($textBox.Text -ne "") ) {
-        $Started = $true
-        mainBody $textBox.Text $textBox2.Text $ListBox.Items
-        $Started = $false
+    if (($JobId -eq $null) -and ($textBox2.Text -ne "") -and ($textBox.Text -ne "") ) {
+        $JobId = Start-Job -ScriptBlock { param($p1, $p2, $p3)
+            mainBody $p1 $p2 $p3
+            } -ArgumentList $textBox.Text,$textBox2.Text,$ListBox.Items -InitializationScript $InitScript
+            Write-Host $textBox.Text
+            Write-Host $textBox2.Text
         return
     }
-    elseif ($Started -eq $true) {
-        $wshell.Popup("The generator is already running. Please wait.",0,"Info",64)
+    elseif ($JobId -ne $null) {
+        $job = Get-Job $JobId.Id
+        if ($job.State -eq "Running") {
+            $wshell.Popup("The generator is already running. Please wait.",0,"Info",64)
+            return
+        }
+        elseif  (($textBox2.Text -ne "") -and ($textBox.Text -ne "")) {
+            $JobId = Start-Job -ScriptBlock { param($p1, $p2, $p3)
+                mainBody $p1 $p2 $p3
+                } -ArgumentList $textBox.Text,$textBox2.Text,$ListBox.Items -InitializationScript $InitScript
+            return
+        }
     }
     if ($textBox.Text -eq "") {
         $wshell.Popup("Please select the path to the ISO file. This should be a Windows 10 ISO file downloaded from Microsoft",0,"Error",48)
@@ -285,5 +160,9 @@ $Label5.MaximumSize = New-Object System.Drawing.Size(570, 0);
 $Label5.Location = New-Object System.Drawing.Point(30, 287)
 $Label5.AutoSize = $true
 $main_form.Controls.Add($Label5)
+$timer=New-Object System.Windows.Forms.Timer
+$timer.Interval=10
+$timer.add_Tick([scriptblock]::Create("`$Label5.Text =  Get-Content  $($ScriptLocation)\ImageGenerator.log -Tail 1; Get-Content  $($ScriptLocation)\ImageGenerator.log -Tail 1 >>C:\dd.txt"))
+$timer.Start()
 #****** Show the form
 $main_form.ShowDialog()
