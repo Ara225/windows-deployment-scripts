@@ -3,7 +3,7 @@ Function mainBody($ISOPath, $DestinationFolder, $ListOfSoftware) {
         # Assumes that the script is run from the same location as it is actually in. This will always happen when run by the batch script
         $ScriptLocation = Get-Location
         $ScriptLocation = $ScriptLocation.Path
-        Write-Output $([datetime]::Now.ToString()) + "Script has started. FYI, many steps will take a very long time." >>$ScriptLocation\ImageGenerator.log
+        Write-Output "$([datetime]::Now.ToString()) Script has started. FYI, many steps will take a very long time." >>$ScriptLocation\ImageGenerator.log
         Set-Location $DestinationFolder
         # The list of volumes before mounting ISO
         $volumesBefore = Get-Volume
@@ -82,7 +82,7 @@ Function mainBody($ISOPath, $DestinationFolder, $ListOfSoftware) {
             if (Get-ChildItem $ScriptLocation\AdministrativeFiles) {
                 Get-ChildItem $ScriptLocation\AdministrativeFiles | ForEach-Object {
                     Copy-Item $ScriptLocation\AdministrativeFiles\$_ .
-             Write-Output "$([datetime]::Now.ToString()) Copied " + $ScriptLocation\AdministrativeFiles\$_ >>$ScriptLocation\ImageGenerator.log
+             Write-Output "$([datetime]::Now.ToString()) Copied $ScriptLocation\AdministrativeFiles\$_ ">>$ScriptLocation\ImageGenerator.log
                 }
             }
             else {
@@ -92,14 +92,14 @@ Function mainBody($ISOPath, $DestinationFolder, $ListOfSoftware) {
                 mkdir Software
                 for ($i = 0; $i -lt $ListOfSoftware.Count; $i++) {
                     Copy-Item  $ListOfSoftware[$i] .\Software
-             Write-Output "$([datetime]::Now.ToString()) Copied " + $ListOfSoftware[$i] >>$ScriptLocation\ImageGenerator.log
+             Write-Output "$([datetime]::Now.ToString()) Copied $ListOfSoftware[$i]" >>$ScriptLocation\ImageGenerator.log
                 }
             }
             elseif (Get-ChildItem $ScriptLocation\FilesToInstall) {
                 mkdir Software
                 Get-ChildItem $ScriptLocation\FilesToInstall | ForEach-Object {
                     Copy-Item $ScriptLocation\FilesToInstall\$_ .\Software
-             Write-Output "$([datetime]::Now.ToString()) Copied " + $ScriptLocation\FilesToInstall\$_ >>$ScriptLocation\ImageGenerator.log
+             Write-Output "$([datetime]::Now.ToString()) Copied $ScriptLocation\FilesToInstall\$_" >>$ScriptLocation\ImageGenerator.log
                 }
             }
             Write-Output "$([datetime]::Now.ToString()) Using DISM to convert the Home folder (which contains the extracted files) back into a image. " >>$ScriptLocation\ImageGenerator.log
@@ -120,7 +120,7 @@ Function mainBody($ISOPath, $DestinationFolder, $ListOfSoftware) {
             if (Get-ChildItem $ScriptLocation\AdministrativeFiles) {
                 Get-ChildItem $ScriptLocation\AdministrativeFiles | ForEach-Object {
                     Copy-Item $ScriptLocation\AdministrativeFiles\$_ .
-             Write-Output "$([datetime]::Now.ToString()) Copied " + $ScriptLocation\AdministrativeFiles\$_ >>$ScriptLocation\ImageGenerator.log
+             Write-Output "$([datetime]::Now.ToString()) Copied $ScriptLocation\AdministrativeFiles\$_" >>$ScriptLocation\ImageGenerator.log
                 }
             }
             else {
@@ -131,14 +131,14 @@ Function mainBody($ISOPath, $DestinationFolder, $ListOfSoftware) {
                 mkdir Software
                 for ($i = 0; $i -lt $ListOfSoftware.Count; $i++) {
                     Copy-Item  $ListOfSoftware[$i] .\Software
-             Write-Output "$([datetime]::Now.ToString()) Copied " + $ListOfSoftware[$i] >>$ScriptLocation\ImageGenerator.log
+                    Write-Output "$([datetime]::Now.ToString()) Copied $ListOfSoftware[$i]" >>$ScriptLocation\ImageGenerator.log
                 }
             }
             elseif (Get-ChildItem $ScriptLocation\FilesToInstall) {
                 mkdir Software
                 Get-ChildItem $ScriptLocation\FilesToInstall | ForEach-Object {
                     Copy-Item $ScriptLocation\FilesToInstall\$_ .\Software
-             Write-Output "$([datetime]::Now.ToString()) Copied " + $ScriptLocation\FilesToInstall\$_ >>$ScriptLocation\ImageGenerator.log
+                    Write-Output "$([datetime]::Now.ToString()) Copied $ScriptLocation\FilesToInstall\$_" >>$ScriptLocation\ImageGenerator.log
                 }
             }
             Write-Output "$([datetime]::Now.ToString()) Using DISM to convert the Pro folder (which contains the extracted files) back into a image. " >>$ScriptLocation\ImageGenerator.log
@@ -156,7 +156,7 @@ Function mainBody($ISOPath, $DestinationFolder, $ListOfSoftware) {
         return
     }
     catch {
-        Write-Output "$([datetime]::Now.ToString())" + $_.Exception  >>$ScriptLocation\ImageGenerator.log
+        Write-Output "$([datetime]::Now.ToString()) $_.Exception" >>$ScriptLocation\ImageGenerator.log
         return
     }
 }

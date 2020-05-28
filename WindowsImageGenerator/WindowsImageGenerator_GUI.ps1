@@ -150,7 +150,7 @@ $Button5.Add_Click( {
 $main_form.Controls.Add($Button5)
 #****** Row 5: Script status
 $Label4 = New-Object System.Windows.Forms.Label
-$Label4.Text = "Status of the image generation process:"
+$Label4.Text = "Status of the image generation process (see $ScriptLocation\ImageGenerator.log for full details. FYI Many steps take 30mins):"
 $Label4.Location = New-Object System.Drawing.Point(20, 270)
 $Label4.AutoSize = $true
 $main_form.Controls.Add($Label4)
