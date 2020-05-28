@@ -4,7 +4,7 @@ if (!(Test-Path "C:\Program Files (x86)\7-Zip\7z.exe")) {
     $wshell.Popup("Can not find the 7Zip command line tool (C:\Program Files (x86)\7-Zip\7z.exe). This is essential. Please install the non portable Windows version from 7Zip & try again.",0,"Error",16)
     exit
 }
-Function mainBody($ISOPath, $DestinationFolder) {    
+Function mainBody($ISOPath, $DestinationFolder, $ListOfSoftware) {    
     try {
         $Label5.Text = "Script has started. FYI, many steps will take a very long time."
         # Assumes that the script is run from the same location as it is actually in. This will always happen when run by the batch script
@@ -89,9 +89,16 @@ Function mainBody($ISOPath, $DestinationFolder) {
             else {
                 $Label5.Text = "Can not find AdministrativeFiles folder (This folder should be in the same place as the script). This means that the install will not be automated!!"
             }
-            if (Get-ChildItem $ScriptLocation\FilesToInstall) {
+            if ($ListOfSoftware.Count -ne 0) {
+                mkdir Software
+                for ($i = 0; $i -lt $ListOfSoftware.Count; $i++) {
+                    Copy-Item  $ListOfSoftware[$i] .\Software
+                }
+            }
+            elseif (Get-ChildItem $ScriptLocation\FilesToInstall) {
+                mkdir Software
                 Get-ChildItem $ScriptLocation\FilesToInstall | ForEach-Object {
-                    Copy-Item $ScriptLocation\FilesToInstall\$_ .
+                    Copy-Item $ScriptLocation\FilesToInstall\$_ .\Software
                 }
             }
             $Label5.Text = "Using DISM to convert the Home folder (which contains the extracted files) back into a image. "
@@ -114,9 +121,16 @@ Function mainBody($ISOPath, $DestinationFolder) {
             else {
                 $Label5.Text = "Can not find AdministrativeFiles folder (This folder should be in the same place as the script). This means that the install will not be automated!!"
             }
-            if (Get-ChildItem $ScriptLocation\FilesToInstall) {
+            if ($ListOfSoftware.Count -ne 0) {
+                mkdir Software
+                for ($i = 0; $i -lt $ListOfSoftware.Count; $i++) {
+                    Copy-Item  $ListOfSoftware[$i] .\Software
+                }
+            }
+            elseif (Get-ChildItem $ScriptLocation\FilesToInstall) {
+                mkdir Software
                 Get-ChildItem $ScriptLocation\FilesToInstall | ForEach-Object {
-                    Copy-Item $ScriptLocation\FilesToInstall\$_ .
+                    Copy-Item $ScriptLocation\FilesToInstall\$_ .\Software
                 }
             }
             $Label5.Text = "Using DISM to convert the Pro folder (which contains the extracted files) back into a image. "
@@ -143,6 +157,7 @@ $main_form.Text = 'Windows Image Generator'
 $main_form.Width = 600
 $main_form.Height = 400
 $main_form.AutoSize = $true
+$main_form.FormBorderStyle
 #****** The header
 $Header = New-Object System.Windows.Forms.Label
 $Header.Text = "Windows Image Generator"
@@ -200,9 +215,10 @@ $Button2.Add_Click({
     })
 #****** Row 3: Select software to install into the image
 $Label3 = New-Object System.Windows.Forms.Label
-$Label3.Text = "Software to install:"
+$Label3.Text = "Software to install into the image.`n`nOptional: uses files from FilesToInstall if left blank. Preferably .msi files"
 $Label3.Location = New-Object System.Drawing.Point(20, 140)
 $Label3.AutoSize = $true
+$Label3.MaximumSize = New-Object System.Drawing.Size(130, 0);
 $main_form.Controls.Add($Label3)
 $ListBox = New-Object System.Windows.Forms.ListBox
 $ListBox.Location = New-Object System.Drawing.Point(150, 140)
@@ -215,6 +231,7 @@ $Button3.AutoSize = $true
 $main_form.Controls.Add($Button3)
 $opens3 = New-Object System.Windows.Forms.OpenFileDialog
 $opens3.Multiselect = $true
+$opens3.Filter = "Software Installers|*.msi,*.exe|All Files|*"
 # Add each one of the files to the list in the list box
 $Button3.Add_Click({
         $opens3.ShowDialog()
@@ -232,7 +249,7 @@ $Button4.ForeColor = "White"
 $Button4.Add_Click( {
     if (($Started -eq $false) -and ($textBox2.Text -ne "") -and ($textBox.Text -ne "") ) {
         $Started = $true
-        $temp = mainBody $textBox.Text $textBox2.Text;
+        mainBody $textBox.Text $textBox2.Text $ListBox.Items
         $Started = $false
         return
     }
@@ -258,14 +275,14 @@ $Button5.Add_Click( {
 $main_form.Controls.Add($Button5)
 #****** Row 5: Script status
 $Label4 = New-Object System.Windows.Forms.Label
-$Label4.Text = "Status:"
-$Label4.Location = New-Object System.Drawing.Point(20, 260)
+$Label4.Text = "Status of the image generation process:"
+$Label4.Location = New-Object System.Drawing.Point(20, 270)
 $Label4.AutoSize = $true
 $main_form.Controls.Add($Label4)
 $Label5 = New-Object System.Windows.Forms.Label
-$Label5.Text = ""
-$Label5.MaximumSize = New-Object System.Drawing.Size(400, 0);
-$Label5.Location = New-Object System.Drawing.Point(65, 260)
+$Label5.Text = "Not started"
+$Label5.MaximumSize = New-Object System.Drawing.Size(570, 0);
+$Label5.Location = New-Object System.Drawing.Point(30, 287)
 $Label5.AutoSize = $true
 $main_form.Controls.Add($Label5)
 #****** Show the form
