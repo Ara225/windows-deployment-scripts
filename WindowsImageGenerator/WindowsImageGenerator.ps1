@@ -1,18 +1,14 @@
 Write-Host "Script has started. FYI, many steps will take a very long time."
-# Path to the Windows ISO
-$ISOPath = "C:\Users\User2\Documents\Windows1909.iso"
 # Assumes that the script is run from the same location as it is actually in. This will always happen when run by the batch script
 $ScriptLocation = Get-Location
 $ScriptLocation = $ScriptLocation.Path
+# Path to the Windows ISO
+$ISOPath =  $ScriptLocation + "\Windows.iso"
 # Folder to put the wim files
-$DestinationFolder = "C:\Users\User2\WindowsImageGenerator"
+$DestinationFolder = $ScriptLocation
 Set-Location $DestinationFolder
 # The list of volumes before mounting ISO
 $volumesBefore = Get-Volume
-if (!(Test-Path  $ISOPath)) {
-    Write-Error "Invalid path to ISO file"
-    exit
-}
 # Mount ISO Assumes default file associations are present
 Invoke-Item $ISOPath
 # Volumes present after mounting ISO
@@ -124,3 +120,4 @@ catch {
 }
 Set-Location $DestinationFolder
 Set-Location $ScriptLocation
+Write-Host "Script excution completed"
