@@ -150,19 +150,30 @@ $Button5.Add_Click( {
 $main_form.Controls.Add($Button5)
 #****** Row 5: Script status
 $Label4 = New-Object System.Windows.Forms.Label
-$Label4.Text = "Status of the image generation process (see $ScriptLocation\ImageGenerator.log for full details. FYI Many steps take 30mins):"
+$Label4.Text = "Status (full details in $ScriptLocation\ImageGenerator.log):"
 $Label4.Location = New-Object System.Drawing.Point(20, 270)
 $Label4.AutoSize = $true
 $main_form.Controls.Add($Label4)
 $Label5 = New-Object System.Windows.Forms.Label
 $Label5.Text = "Not started"
 $Label5.MaximumSize = New-Object System.Drawing.Size(570, 0);
-$Label5.Location = New-Object System.Drawing.Point(30, 287)
+$Label5.Location = New-Object System.Drawing.Point(40, 287)
 $Label5.AutoSize = $true
 $main_form.Controls.Add($Label5)
+# Set timer to update status every 10 seconds from the log file. Due to the backend running as a job, 
+# this is one of the easiest ways to handle updating status. Some quick and dirty rules of thumb to 
+# decide what messages we want to show
 $timer=New-Object System.Windows.Forms.Timer
 $timer.Interval=10
-$timer.add_Tick([scriptblock]::Create("`$Label5.Text =  Get-Content  $($ScriptLocation)\ImageGenerator.log -Tail 1; Get-Content  $($ScriptLocation)\ImageGenerator.log -Tail 1 >>C:\dd.txt"))
+$timer.add_Tick([scriptblock]::Create(
+                                        "`$content = Get-Content $($ScriptLocation)\ImageGenerator.log -Tail 1;"+
+                                        'if ($content[2] -eq "/") {' +
+                                            '$Label5.Text = $content' +
+                                        '}' +
+                                        'if ($content[0] -eq "[") {' +
+                                            '$Label5.Text = "Status of current DISM action: $content"' +
+                                        '}'
+                                      ))
 $timer.Start()
 #****** Show the form
 $main_form.ShowDialog()
