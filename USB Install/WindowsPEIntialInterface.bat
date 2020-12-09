@@ -104,7 +104,7 @@ del FormatDrive0.bat
 Echo.
 echo STEP 2 of 4 Applying the Windows 10 Home image (should take approx 20-35 mins)
 Echo.
-Dism /apply-image /imagefile:%WimFile%/index:1 /ApplyDir:w:\
+Dism /apply-image /imagefile:%WimFile% /index:1 /ApplyDir:w:\
 Echo.
 echo STEP 3 of 4 Adding boot files (should take approx 2-5 mins)
 Echo.
