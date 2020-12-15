@@ -26,7 +26,7 @@
         }
     ],
     "ReportingURL": "",
-    "ScratchDir": "",
+    "ScratchFolder": "",
     "WsusContentFolderPath": ""
 }
 ```
