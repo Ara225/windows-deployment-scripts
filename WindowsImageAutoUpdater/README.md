@@ -1,23 +1,32 @@
 ```JSON
-[
-    {
-        "ImagesFolderPath": "...",
-        "MasterImageISOPath": "...",
-        "MasterImageDisplayName": "...",
-        "ReportingURL": "",
-        "DerivateImages": [
-            {
-                "DisplayName": "...",
-                "WinGetDependencies": [
-                    "URL to a yaml in WinGet repo"
-                ],
-                "CommandsToBeRunInUnattend": "",
-                "UserName": "...",
-                "Password": "...",
-                "PasswordIsPlainText": false,
-                "WindowsEdition": "..."
-            }
-        ]
-    }
-]
+{
+    "ImageDetails": [
+        {
+            "Path": "...",
+            "DisplayName": "...",
+            "WindowsEdition": "...",
+            "DerivateImages": [
+                {
+                    "Path": "...",
+                    "DisplayName": "...",
+                    "WinGetDependencies": [
+                        {
+                            "URL": "URL to a yaml in WinGet repo",
+                            "InstalledVersion": ""
+                        }
+                    ],
+                    "CommandsToBeRunInUnattend": "",
+                    "UserName": "...",
+                    "Password": "...",
+                    "PasswordIsPlainText": false,
+                    "HasBeenGeneratedWithCurrentSoftware": true,
+                    "ShouldBeDeleted": false
+                }
+            ]
+        }
+    ],
+    "ReportingURL": "",
+    "ScratchDir": "",
+    "WsusContentFolderPath": ""
+}
 ```
