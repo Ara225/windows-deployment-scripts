@@ -12,16 +12,6 @@ if (!Test-Path $ScriptLocation\Images.json) {
     exit
 }
 
-if (!Test-Path $ScriptLocation\DefaultUnattend.xml) { 
-    logger -TextToLog "$(Get-Date) ERROR: Cannot find DefaultUnattend.xml in current folder ($ScriptLocation)\n"
-    exit
-}
-
-if (!Test-Path $ScriptLocation\SpecGatherScript.vbs) { 
-    logger -TextToLog "$(Get-Date) ERROR: Cannot find SpecGatherScript.vbs in current folder ($ScriptLocation)\n"
-    exit
-}
-
 $ConfigObject = Get-Content -Path $ScriptLocation\Images.json | ConvertFrom-Json 
 
 if ($ConfigObject -eq $null) {
@@ -29,12 +19,23 @@ if ($ConfigObject -eq $null) {
     exit
 }
 
-$DefaultUnattend = Get-Content -Path $ScriptLocation\DefaultUnattend.xml
 
-if ($DefaultUnattend -eq $null) {
-    logger -TextToLog "$(Get-Date) ERROR: Unable to import DefaultUnattend from file\n"
-    exit
-}
+#if (!Test-Path $ScriptLocation\DefaultUnattend.xml) { 
+#    logger -TextToLog "$(Get-Date) ERROR: Cannot find DefaultUnattend.xml in current folder ($ScriptLocation)\n"
+#    exit
+#}
+
+#if (!Test-Path $ScriptLocation\SpecGatherScript.vbs) { 
+#    logger -TextToLog "$(Get-Date) ERROR: Cannot find SpecGatherScript.vbs in current folder ($ScriptLocation)\n"
+#    exit
+#}
+#$DefaultUnattend = Get-Content -Path $ScriptLocation\DefaultUnattend.xml
+
+#if ($DefaultUnattend -eq $null) {
+#    logger -TextToLog "$(Get-Date) ERROR: Unable to import DefaultUnattend from file\n"
+#    exit
+#}
+
 
 if (Test-Path $ScriptLocation\ImageUpdater1.log) {
     logger -TextToLog "$(Get-Date) INFO: Removing ImageUpdater1.log\n"
@@ -54,6 +55,64 @@ if( (Test-Path -Path $ConfigObject.ScratchFolder ) -eq $false ) {
         logger -TextToLog "$(Get-Date) ERROR: Failed to create scratch path  $($ConfigObject.ScratchFolder). Exiting."
         exit
     }
+}
+
+
+function Update-Images() {
+    Param(
+        [object] $Config
+    )
+    foreach ($item in $Config.ImageDetails) {
+        if ($item.ShouldBeDeleted) {
+            Delete-ImageFromWDS -ImageFileName $item.FileName -ImageFilePath $item.Path
+            foreach ($DerivateImage in $item.DerivateImages) {
+                Delete-ImageFromWDS -ImageFileName $DerivateImage.FileName -ImageFilePath $DerivateImage.Path
+            }
+            continue
+        }
+        logger -TextToLog "$(Get-Date) INFO: Getting install image $($item.FileName) from WDS"
+        $Image = Get-ImageFromWDS -Config $Config -item $item
+        $UpdateResult = Update-WdsImage -Image $Image -Scratch $Config.ScratchFolder -WsusContent $Config.WsusContentFolderPath
+        if ($UpdateResult -eq $false) {
+            logger -TextToLog "$(Get-Date) ERROR: Error updating $($item.Path)"
+            continue
+        }
+        foreach ($DerivateImage in $item.DerivateImages) {
+            if ($DerivateImage.ShouldBeDeleted) {
+                Delete-ImageFromWDS -ImageFileName $DerivateImage.FileName -ImageFilePath $DerivateImage.Path
+                continue
+            }
+        }
+    }
+}
+
+function Get-ImageFromWDS() {
+    Param(
+        [object] $Config,
+        [object] $item
+    )
+    try {
+        $Image = Get-WdsInstallImage -FileName $item.FileName
+    }
+    catch {
+        logger -TextToLog $Error.ToString()
+        if (Test-Path $item.Path) { 
+            try {
+                logger -TextToLog "$(Get-Date) INFO: Attempting to add $($item.FileName) to WDS"
+                Import-WdsInstallImage -ImageGroup $Config.DefaultImageGroup -Path $item.Path -NewImageName $Config.DisplayName -Multicast -TransmissionName $Config.DisplayName+" MultiCast"
+                $Image = Get-WdsInstallImage -FileName $item.FileName
+            }
+            catch {
+                logger -TextToLog "$(Get-Date) ERROR: Error adding $($item.FileName) to WDS"
+                logger -TextToLog $Error.ToString()
+            }
+        }
+        #else if ($item.Path -eq "") {}
+        else {
+            logger -TextToLog "$(Get-Date) ERROR: Couldn't find $($item.Path)"
+        }
+    }
+    return $Image
 }
 
  # Below came from  https://github.com/breich/UpdateWdsFromWsus
@@ -83,8 +142,6 @@ function Update-WdsFromWsus() {
     .SUMMARY Updates a specific image in the WDS repository.
 #>
 function Update-WdsImage() {
-
-    
     Param(
         $Image,
         $ScratchFolder,
