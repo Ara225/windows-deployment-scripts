@@ -1,6 +1,6 @@
-$ScratchFolder = ""
-$WsusContent = ""
-$WDSRoot = ""
+$ScratchFolder = "C:\scratch"
+$WsusContent = "C:\wsus\WsusContent"
+$WDSRoot = "C:\"
 function logger{
     param (
         $TextToLog
@@ -21,13 +21,6 @@ if (Test-Path $ScriptLocation\ImageUpdater.log) {
 
  # Below came from  https://github.com/breich/UpdateWdsFromWsus
 function Update-WdsFromWsus() {
-
-    Param(
-        [string] $ScratchFolder,
-        [string] $WsusContent
-    )
-
-    
     # Make sure temp path exists
     if( (Test-Path -Path $ScratchFolder ) -eq $false ) {
         logger -TextToLog "$(Get-Date) INFO: Temp Folder $ScratchFolder doesn't exist, creating it."
@@ -45,9 +38,7 @@ function Update-WdsFromWsus() {
 
     # Update each image.
     foreach( $Image in $Images ) {
-        if ($Image.ImageName.Contains("Updatable")) {
             Update-WdsImage -Image $Image -Scratch $ScratchFolder -WsusContent $WsusContent
-        }
     }
 }
 
@@ -69,82 +60,74 @@ function Update-WdsImage() {
 
     logger -TextToLog "$(Get-Date) INFO: Updating " $ImageName " (" $Image.FileName ")"
 
+    # Export image from WDS
     logger -TextToLog "$(Get-Date) INFO: .... Exporting $ImageName to $ExportDestination"
-    $Export = Export-WdsInstallImage  -Destination $ExportDestination -ImageName $ImageName -FileName $ExportFileName -ImageGroup $ImageGroup -NewImageName $ImageName -ErrorAction SilentlyContinue
-
-    
-    # Verify that mounting succeeded.
-    if( $export -eq $null ) {
-
+    try {
+       Export-WdsInstallImage  -Destination $ExportDestination -ImageName $ImageName -ImageGroup $ImageGroup
+    }
+    catch {
         logger -TextToLog "$(Get-Date) ERROR: .... Exporting $ImageName to $exportDestination failed. Quitting."
+        logger -TextToLog $error
         return $false;
     }
-    Copy-Item $ExportDestination "$ScratchFolder\" + $image.FileName.Replace("Updatable", "NEWOLD")
-    # Create Mount path.
-    $MountPath = "$ScratchFolder\$ImageName"
+    
+    # Create Mount path
+    $MountPath = "$ScratchFolder\$ImageName$((Get-Date).ToShortDateString())"
     if( ( Test-Path -Path $MountPath ) -eq $false ) {
         logger -TextToLog "$(Get-Date) INFO: .... Mount Folder $MountPath doesn't exist, creating it."
         $crap = New-Item -Path $MountPath -ItemType directory
         
     }
-    logger -TextToLog "$(Get-Date) INFO: .... Mounting $ImageName to $MountPath. Please be patient."
-    $mount = Mount-WindowsImage -ImagePath $exportDestination -Path $MountPath -Index $Index -CheckIntegrity  -ErrorAction SilentlyContinue
-
-    # Verify Mount.
-    if( $mount -eq $null ) {
+    try {
+        logger -TextToLog "$(Get-Date) INFO: .... Mounting $ImageName to $MountPath. Please be patient."
+        $mount = Mount-WindowsImage -ImagePath $exportDestination -Path $MountPath -Index $Index -CheckIntegrity 
+     }
+     catch {
         logger -TextToLog "$(Get-Date) ERROR: .... Failed to mount $ImageName to $MountPath. Quitting."
+        logger -TextToLog $error
         return $false
-    }
+     }
 
     logger -TextToLog "$(Get-Date) INFO: Adding WSUS Packages from ""$WsusContent"" to Windows Image Mounted at ""$MountPath"" "
-    
-    $updatFolders = Get-ChildItem -Path $WsusContent
-    
-    foreach ($folder in $updatFolders) {
+    $updateFolders = Get-ChildItem -Path $WsusContent
+    foreach ($folder in $updateFolders) {
         Add-WindowsPackage -PackagePath $folder.FullName -Path $MountPath  -ErrorAction SilentlyContinue
     }
-    
-    # Dismount
-    logger -TextToLog "$(Get-Date) INFO: .... Dismounting and saving $ImageName."
-    $dismount = Dismount-WindowsImage -Path $MountPath -Save  -ErrorAction SilentlyContinue
-
-    if( $dismount -eq $null ) {
-
+    try {
+        # Dismount
+        logger -TextToLog "$(Get-Date) INFO: .... Dismounting and saving $ImageName."
+        $dismount = Dismount-WindowsImage -Path $MountPath -Save
+    }
+    catch {
         logger -TextToLog "$(Get-Date) ERROR: Failed to dismount and save changes to $ImageName. Quitting."
+        logger -TextToLog $error
         return $false
     }
 
     # Delete Mount Path
     logger -TextToLog "$(Get-Date) INFO: .... Deleting mount path $MountPath"
-    $deleteMountPath = Remove-Item -Path $MountPath
-
-    logger -TextToLog "$(Get-Date) INFO: ....Removing old image file"
-    $OldImage = Get-WdsInstallImage -ImageGroup $Image.ImageGroup -ImageName $ImageName.Replace("Updatable", "OLD")
-    if ($OldImage -ne $null) {
-        Remove-WdsInstallImage -ImageGroup $Image.ImageGroup -ImageName $ImageName.Replace("Updatable", "OLD")
-        Delete-Item "$WDSRoot\$($OldImage.FileName)"
-    }
-    Remove-WdsInstallImage -ImageGroup $Image.ImageGroup -ImageName $ImageName
-    Delete-Item "$WDSRoot\$($image.FileName)"
-
-    Copy-Item "$ScratchFolder\" + $image.FileName.Replace("Updatable", "NEWOLD") "$ScratchFolder\" + $image.FileName.Replace("Updatable", "OLD")
+    $deleteMountPath = Remove-Item -Path $MountPath -Recurse -Force  -ErrorAction SilentlyContinue 
 
     logger -TextToLog "$(Get-Date) INFO: .... Importing image to WDS"
-    # The Import needs to be called differently depending on whether or not there's an UnattendFile.
-    # If Import-WdsInstallImage is called with an empty or null UnattendFile, import fails.
-    if( $Image.UnattendFile -eq $null -or $Image.UnattendFile -eq "" ) {
-        logger -TextToLog "$(Get-Date) INFO: Import-WdsInstallImage -ImageGroup $Image.ImageGroup -Path $ExportDestination -ImageName -NewImageName $ImageName"
-        $import = Import-WdsInstallImage -ImageGroup $Image.ImageGroup -Path $ExportDestination -NewImageName $ImageName
-    } else {
-        $import = Import-WdsInstallImage -ImageGroup $Image.ImageGroup -UnattendFile $Image.UnattendFile -Path $ExportDestination -ImageName $ImageName -NewImageName $ImageName
+    try {
+        # The Import needs to be called differently depending on whether or not there's an UnattendFile.
+        # If Import-WdsInstallImage is called with an empty or null UnattendFile, import fails.
+        if( $Image.UnattendFile -eq $null -or $Image.UnattendFile -eq "" ) {
+            $import = Import-WdsInstallImage -ImageGroup $Image.ImageGroup -Path $ExportDestination -NewImageName $ImageName -Multicast -TransmissionName $ImageName -DisplayOrder 0 
+        } else {
+            $import = Import-WdsInstallImage -ImageGroup $Image.ImageGroup -UnattendFile $Image.UnattendFile -Path $ExportDestination -ImageName $ImageName -NewImageName $ImageName  -Multicast -TransmissionName $ImageName -DisplayOrder 0 
+        }
     }
-
-    if( $import -eq $null ) {
+    catch {
         logger -TextToLog "$(Get-Date) ERROR: Failed to import modified image to server. Quitting."
+        logger -TextToLog $error
         return $false
     }
 
     # Delete  Export
     logger -TextToLog "$(Get-Date) INFO: .... Removing Exported file $exportDestination"
-    Remove-Item -Path $ExportDestination -Recurse  -ErrorAction SilentlyContinue
+    Remove-Item -Path $ExportDestination -Recurse -Force -ErrorAction SilentlyContinue
 }
+
+Update-WdsFromWsus
+timeout.exe /T30

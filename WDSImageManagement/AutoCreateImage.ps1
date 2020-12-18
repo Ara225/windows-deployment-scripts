@@ -6,6 +6,7 @@ $ISOs = Get-ChildItem -Path $InputPath -Include "*.iso" -File
 foreach ($ISO in $ISOs) {
     try {
         Write-Host "Found $ISO"
+        Dismount-DiskImage -ImagePath $ISO
         $MountPath = Mount-DiskImage -ImagePath $ISO -PassThru
         $ISOMountPoint = Get-DiskImage -DevicePath $MountPath.CimInstanceProperties["DevicePath"].Value | Get-Volume 
         $ISODriveLetter = $ISOMountPoint.DriveLetter
@@ -37,17 +38,24 @@ foreach ($ISO in $ISOs) {
         if ($ProIndex -ne $null) {
             $ProOutputPath = "$OutputPath\Windows10ProBuiltAt$FileNameSafeDate.wim"
             $ProOutputName = "Windows 10 Pro Built At $FileNameSafeDate"
+            Write-Host "Exporting Home image from install.esd"
             Export-WindowsImage -SourceImagePath $ScratchPath\install.esd -SourceIndex $ProIndex -DestinationImagePath $ProOutputPath -DestinationName $ProOutputName
-            Import-WdsInstallImage -ImageGroup "Desktops" -Path $ProOutputPath -NewImageName $ProOutputName -Multicast -TransmissionName $ProOutputName MultiCast -DisplayOrder 0 -UnattendFile "./unattend.xml"
+            Write-Host "Importing Pro image into WDS"
+            Import-WdsInstallImage -ImageGroup "Desktops" -Path $ProOutputPath -NewImageName $ProOutputName -Multicast -TransmissionName $ProOutputName -DisplayOrder 0 -UnattendFile "./unattend.xml"
         }
         if ($HomeIndex -ne $null) {
             $HomeOutputPath = "$OutputPath\Windows10HomeBuiltAt$FileNameSafeDate.wim"
             $HomeOutputName = "Windows 10 Home Built At $FileNameSafeDate"
+            Write-Host "Exporting Home image from install.esd"
             Export-WindowsImage -SourceImagePath $ScratchPath\install.esd -SourceIndex $HomeIndex -DestinationImagePath $HomeOutputPath -DestinationName $HomeOutputName
+            Write-Host "Importing Home image into WDS"
             Import-WdsInstallImage -ImageGroup "Desktops" -Path $HomeOutputPath -NewImageName $HomeOutputName -Multicast -TransmissionName $HomeOutputName MultiCast -DisplayOrder 0 -UnattendFile "./unattend.xml"
         }
+        Dismount-DiskImage -ImagePath $ISO
     }
     catch {
         Write-Host "Error occured " $error
+        Dismount-DiskImage -ImagePath $ISO
     }
 }
+Read-Host -Prompt "Press enter to continue"
