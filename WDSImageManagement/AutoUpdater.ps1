@@ -118,6 +118,7 @@ function Update-WdsImage() {
     logger -TextToLog "$(Get-Date) INFO: .... Deleting mount path $MountPath"
     $deleteMountPath = Remove-Item -Path $MountPath
 
+    logger -TextToLog "$(Get-Date) INFO: ....Removing old image file"
     $OldImage = Get-WdsInstallImage -ImageGroup $Image.ImageGroup -ImageName $ImageName.Replace("Updatable", "OLD")
     if ($OldImage -ne $null) {
         Remove-WdsInstallImage -ImageGroup $Image.ImageGroup -ImageName $ImageName.Replace("Updatable", "OLD")
