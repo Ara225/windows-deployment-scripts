@@ -1,6 +1,8 @@
 $ScratchFolder = "C:\scratch"
 $WsusContent = "C:\wsus\WsusContent"
 $WDSRoot = "C:\"
+$FileNameSafeDate = (Get-Date).ToString().Replace(':', '-').Replace("/", "-").Replace(" ", "_")
+
 function logger{
     param (
         $TextToLog
@@ -72,7 +74,7 @@ function Update-WdsImage() {
     }
     
     # Create Mount path
-    $MountPath = "$ScratchFolder\$ImageName$((Get-Date).ToShortDateString())"
+    $MountPath = "$ScratchFolder\$ImageName$((Get-Date).ToFileTime())"
     if( ( Test-Path -Path $MountPath ) -eq $false ) {
         logger -TextToLog "$(Get-Date) INFO: .... Mount Folder $MountPath doesn't exist, creating it."
         $crap = New-Item -Path $MountPath -ItemType directory
@@ -89,9 +91,19 @@ function Update-WdsImage() {
      }
 
     logger -TextToLog "$(Get-Date) INFO: Adding WSUS Packages from ""$WsusContent"" to Windows Image Mounted at ""$MountPath"" "
-    $updateFolders = Get-ChildItem -Path $WsusContent
+    try {
+        $updateFolders = Get-ChildItem -Path $WsusContent
+    }
+    catch {
+        logger -TextToLog "Unable to get contents of $WsusContent"
+        return $false
+    }
+    for ($folder = 0; $folder -lt $updateFolders.Count; $folder++) {
+        logger -TextToLog $updateFolders[$folder].FullName
+        Add-WindowsPackage -PackagePath $updateFolders[$folder].FullName -Path $MountPath
+    }
     foreach ($folder in $updateFolders) {
-        Add-WindowsPackage -PackagePath $folder.FullName -Path $MountPath  -ErrorAction SilentlyContinue
+        logger -TextToLog $folder.FullName
     }
     try {
         # Dismount
@@ -106,16 +118,17 @@ function Update-WdsImage() {
 
     # Delete Mount Path
     logger -TextToLog "$(Get-Date) INFO: .... Deleting mount path $MountPath"
-    $deleteMountPath = Remove-Item -Path $MountPath -Recurse -Force  -ErrorAction SilentlyContinue 
+    cmd /c del $MountPath /Q 
 
+    Move-Item $exportDestination $WDSRoot
     logger -TextToLog "$(Get-Date) INFO: .... Importing image to WDS"
     try {
         # The Import needs to be called differently depending on whether or not there's an UnattendFile.
         # If Import-WdsInstallImage is called with an empty or null UnattendFile, import fails.
         if( $Image.UnattendFile -eq $null -or $Image.UnattendFile -eq "" ) {
-            $import = Import-WdsInstallImage -ImageGroup $Image.ImageGroup -Path $ExportDestination -NewImageName $ImageName -Multicast -TransmissionName $ImageName -DisplayOrder 0 
+            $import = Import-WdsInstallImage -ImageGroup $Image.ImageGroup -Path "$WDSRoot\$($image.FileName)" -NewImageName $ImageName -Multicast -TransmissionName $ImageName -DisplayOrder 0 
         } else {
-            $import = Import-WdsInstallImage -ImageGroup $Image.ImageGroup -UnattendFile $Image.UnattendFile -Path $ExportDestination -ImageName $ImageName -NewImageName $ImageName  -Multicast -TransmissionName $ImageName -DisplayOrder 0 
+            $import = Import-WdsInstallImage -ImageGroup $Image.ImageGroup -UnattendFile $Image.UnattendFile -Path "$WDSRoot\$($image.FileName)" -ImageName $ImageName -NewImageName $ImageName  -Multicast -TransmissionName $ImageName -DisplayOrder 0 
         }
     }
     catch {
@@ -123,10 +136,6 @@ function Update-WdsImage() {
         logger -TextToLog $error
         return $false
     }
-
-    # Delete  Export
-    logger -TextToLog "$(Get-Date) INFO: .... Removing Exported file $exportDestination"
-    Remove-Item -Path $ExportDestination -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 Update-WdsFromWsus

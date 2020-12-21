@@ -1,23 +1,28 @@
 $ExcutionComplete = $false
-$WDSRoot = ""
+$WDSRoot = "C:/"
 
 Write-Host "This script can delete WDS images "
 $Images = Get-WdsInstallImage
 
 while ($ExcutionComplete -ne $true) {
-    for ($i = 0; $i -lt $Images.Count; $i++) {
-        Write-Host $i  $Images[$i].ImageName
+    if ($Images.Count -ne $null) {
+        for ($i = 0; $i -lt $Images.Count; $i++) {
+            Write-Host $i  $Images[$i].ImageName
+        }
+        try {
+            $Choice = Read-Host -Prompt "Please enter the number of the image you want to delete (ctrl+c to exit)"
+            $Choice = [int]$Choice
+            $Image = $Images[$Choice]
+        }
+        catch {
+            Write-Error "Please enter a valid number"
+            continue
+        }
+    }
+    else {
+        $Image = $Images
     }
     
-    $Choice = Read-Host -Prompt "Please enter the number of the image you want to delete (ctrl+c to exit): "
-    try {
-        $Choice = $Choice.ToUInt16($Choice)
-        $Image = $Images[$Choice]
-    }
-    catch {
-        Write-Error "Please enter a valid number"
-        continue
-    }
 
     $Confirmation = Read-Host -Prompt "Are you sure you want to delete $($Image.ImageName) (Y/N)? "
     
@@ -27,7 +32,7 @@ while ($ExcutionComplete -ne $true) {
     }
     Write-Host "Deleting $($Image.ImageName)"
     Remove-WdsInstallImage -ImageGroup $Image.ImageGroup -ImageName $Image.ImageName
-    Delete-Item "$WDSRoot\$($Image.FileName)"
+    Remove-Item "$WDSRoot\$($Image.FileName)"
     Write-Host "Deleted $($Image.ImageName)"
     Read-Host -Prompt "Press enter to continue"
     $ExcutionComplete = $true
