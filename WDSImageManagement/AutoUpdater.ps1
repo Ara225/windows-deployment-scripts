@@ -53,18 +53,19 @@ function Update-WdsImage() {
         $ScratchFolder,
         $WsusContent
     )
-    $ExportDestination    = "$ScratchFolder\" + $image.FileName
-    $ImageName      = $Image.ImageName
-    $ExportFileName       = $Image.FileName.split("|")[0] +"|"+(Get-Date).ToFileTime()
-    $ImageGroup     = $Image.ImageGroup
-    $Index          = $Image.Index 
-    $Description    = "Updated at " + (Get-Date).ToShortDateString() + " via script"
 
-    logger -TextToLog "$(Get-Date) INFO: Updating " $ImageName " (" $Image.FileName ")"
-
-    # Export image from WDS
-    logger -TextToLog "$(Get-Date) INFO: .... Exporting $ImageName to $ExportDestination"
     try {
+        $ExportDestination = "$ScratchFolder\" + $image.FileName
+        $ImageName = $Image.ImageName
+        $ExportFileName = $Image.FileName.split("|")[0] +"|"+(Get-Date).ToFileTime()
+        $ImageGroup = $Image.ImageGroup
+        $Index = $Image.Index 
+        $Description = "Updated at " + (Get-Date).ToShortDateString() + " via script"
+    
+        logger -TextToLog "$(Get-Date) INFO: Updating " $ImageName " (" $Image.FileName ")"
+    
+        # Export image from WDS
+        logger -TextToLog "$(Get-Date) INFO: .... Exporting $ImageName to $ExportDestination"
        Export-WdsInstallImage  -Destination $ExportDestination -ImageName $ImageName -ImageGroup $ImageGroup
     }
     catch {
@@ -73,14 +74,14 @@ function Update-WdsImage() {
         return $false;
     }
     
-    # Create Mount path
-    $MountPath = "$ScratchFolder\$ImageName$((Get-Date).ToFileTime())"
-    if( ( Test-Path -Path $MountPath ) -eq $false ) {
-        logger -TextToLog "$(Get-Date) INFO: .... Mount Folder $MountPath doesn't exist, creating it."
-        $crap = New-Item -Path $MountPath -ItemType directory
-        
-    }
     try {
+        # Create Mount path
+        $MountPath = "$ScratchFolder\$ImageName$((Get-Date).ToFileTime())"
+        if( ( Test-Path -Path $MountPath ) -eq $false ) {
+            logger -TextToLog "$(Get-Date) INFO: .... Mount Folder $MountPath doesn't exist, creating it."
+            $crap = New-Item -Path $MountPath -ItemType directory
+            
+        }
         logger -TextToLog "$(Get-Date) INFO: .... Mounting $ImageName to $MountPath. Please be patient."
         $mount = Mount-WindowsImage -ImagePath $exportDestination -Path $MountPath -Index $Index -CheckIntegrity 
      }
@@ -90,25 +91,21 @@ function Update-WdsImage() {
         return $false
      }
 
-    logger -TextToLog "$(Get-Date) INFO: Adding WSUS Packages from ""$WsusContent"" to Windows Image Mounted at ""$MountPath"" "
     try {
+        logger -TextToLog "$(Get-Date) INFO: Adding WSUS Packages from ""$WsusContent"" to Windows Image Mounted at ""$MountPath"" "
         $updateFolders = Get-ChildItem -Path $WsusContent
     }
     catch {
         logger -TextToLog "Unable to get contents of $WsusContent"
         return $false
     }
-    for ($folder = 0; $folder -lt $updateFolders.Count; $folder++) {
-        logger -TextToLog $updateFolders[$folder].FullName
-        Add-WindowsPackage -PackagePath $updateFolders[$folder].FullName -Path $MountPath
-    }
-    foreach ($folder in $updateFolders) {
-        logger -TextToLog $folder.FullName
-    }
+
+    Update-WindowsImage -Folders $FailedUpdates -MountPath $MountPath -Count 3
+
     try {
         # Dismount
         logger -TextToLog "$(Get-Date) INFO: .... Dismounting and saving $ImageName."
-        $dismount = Dismount-WindowsImage -Path $MountPath -Save
+        Dismount-WindowsImage -Path $MountPath -Save
     }
     catch {
         logger -TextToLog "$(Get-Date) ERROR: Failed to dismount and save changes to $ImageName. Quitting."
@@ -116,13 +113,20 @@ function Update-WdsImage() {
         return $false
     }
 
-    # Delete Mount Path
-    logger -TextToLog "$(Get-Date) INFO: .... Deleting mount path $MountPath"
-    cmd /c del $MountPath /Q 
-
-    Move-Item $exportDestination $WDSRoot
-    logger -TextToLog "$(Get-Date) INFO: .... Importing image to WDS"
     try {
+        # Delete Mount Path
+        logger -TextToLog "$(Get-Date) INFO: .... Deleting mount path $MountPath"
+        cmd /c del $MountPath /Q 
+        Move-Item $exportDestination $WDSRoot
+    }
+    catch {
+        logger -TextToLog "$(Get-Date) ERROR: Failed to tidy up"
+        logger -TextToLog $error
+        return $false
+    }
+
+    try {
+        logger -TextToLog "$(Get-Date) INFO: .... Importing image to WDS"
         # The Import needs to be called differently depending on whether or not there's an UnattendFile.
         # If Import-WdsInstallImage is called with an empty or null UnattendFile, import fails.
         if( $Image.UnattendFile -eq $null -or $Image.UnattendFile -eq "" ) {
@@ -138,5 +142,27 @@ function Update-WdsImage() {
     }
 }
 
+function Update-WindowsImage {
+    param (
+        $Folders,
+        $MountPath,
+        $Count
+    )
+    $FailedUpdates = @()
+    foreach ($folder in $Folders) {
+        try {
+            logger -TextToLog $folder.FullName
+            Add-WindowsPackage -PackagePath $folder.FullName -Path $MountPath
+        }
+        catch {
+            $FailedUpdates.Add($folder) 
+        }
+    }
+    $Count = $Count - 1
+    if ($Count -gt 1) {
+        Update-WindowsImage -Folders $FailedUpdates -MountPath $MountPath -Count $Count
+    }
+}
+
 Update-WdsFromWsus
-timeout.exe /T30
+timeout.exe /T 30
