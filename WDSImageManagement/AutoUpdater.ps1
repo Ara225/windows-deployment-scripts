@@ -122,7 +122,7 @@ function Update-WdsImage() {
         return $false
     }
 
-    Update-WindowsImage -Folders $FailedUpdates -MountPath $MountPath -Count 3
+    Update-WindowsImage -Folders $updateFolders -MountPath $MountPath -Count 3
 
     try {
         # Dismount
